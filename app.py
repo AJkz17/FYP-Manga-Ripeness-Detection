@@ -403,7 +403,7 @@ def history():
 
 
 # --- CHATBOT CONFIGURATION ---
-genai.configure(api_key="AIzaSyBBadNa9WeCT3PdZ6vd-4L4wVfiFAsiYHY") 
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 generation_config = {
     "temperature": 0.7,
