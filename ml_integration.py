@@ -13,8 +13,6 @@ def predict_ripeness(image_path):
         "conf": 0.25,
         "iou": 0.45
     }
-
-    # Initialize an empty list to capture all object anomalies detected
     all_detections = []
 
     try:
@@ -28,7 +26,7 @@ def predict_ripeness(image_path):
 
         if response.status_code != 200:
             print(f"API Error: {response.status_code}")
-            return [] # Return an empty list on failure to remain iteration safe
+            return []
 
         data = response.json()
 
@@ -36,13 +34,10 @@ def predict_ripeness(image_path):
             first_image = data['images'][0]
 
             if 'results' in first_image and len(first_image['results']) > 0:
-                # LOOP through all objects instead of pulling index [0]
                 for result in first_image['results']:
                     prediction_class = result.get('name', 'Unknown')
                     confidence = result.get('confidence', 0.0)
-                    box = result.get('box') # Structure: {'x1':..., 'y1':..., 'x2':..., 'y2':...}
-
-                    # Append an itemized block matching our updated application pipeline expectations
+                    box = result.get('box')
                     all_detections.append({
                         'class': str(prediction_class).capitalize(),
                         'confidence': round(confidence * 100, 2),
