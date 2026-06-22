@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-5">
+    
+    <div class="row align-items-center mb-5">
+        <div class="col-lg-6">
+            <h1 class="display-4 fw-bold text-success">About MangoSnap</h1>
+            <p class="lead text-muted">
+                Bridging the gap between traditional farming and modern Artificial Intelligence.
+            </p>
+            <p>
+                MangoDetect is a Final Year Project designed to assist farmers and quality control officers 
+                in instantly analyzing mango ripeness. By reducing human error and waste, 
+                we aim to optimize the harvest supply chain.
+            </p>
+        </div>
+        <div class="col-lg-6 text-center">
+            <span style="font-size: 150px;">👨‍🌾</span>
+        </div>
+    </div>
+
+    <hr class="my-5">
+
+    <div class="row mb-5">
+        <div class="col-md-12 text-center mb-4">
+            <h2 class="fw-bold">Information</h2>
+            <p class="text-muted">Built on state-of-the-art Computer Vision architecture.</p>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100 border-0 bg-light">
+                <div class="card-body p-4">
+                    <h3 class="card-title text-primary mb-3">🧠 Model Architecture</h3>
+                    <p class="card-text fs-5">
+                        We utilize <strong>YOLO11n (You Only Look Once - Nano)</strong>, 
+                        optimized for real-time detection on edge devices.
+                    </p>
+                    <ul class="list-unstyled mt-3">
+                        <li class="mb-2">✅ <strong>Lightweight:</strong> Fast performance even on standard laptops.</li>
+                        <li class="mb-2">✅ <strong>High Accuracy:</strong> Fine-tuned specifically for mango features.</li>
+                        <li class="mb-2">✅ <strong>Real-Time:</strong> Processes images in milliseconds.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mt-4 mt-md-0">
+            <div class="card shadow-sm h-100 border-0 bg-light">
+                <div class="card-body p-4">
+                    <h3 class="card-title text-success mb-3">📊 The Dataset</h3>
+                    <p class="card-text fs-5">
+                        Robustness comes from data. Our model was trained on a rigorous dataset:
+                    </p>
+                    <ul class="list-unstyled mt-3">
+                        <li class="mb-2">📸 <strong>1,300 Training Images</strong> collected from diverse environments.</li>
+                        <li class="mb-2">🔄 <strong>Data Augmentation</strong> applied (Rotation, Zoom, Flip) to prevent overfitting.</li>
+                        <li class="mb-2">🏷️ <strong>3 Classes:</strong> Ripe, Unripe, and Overripe.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">📂 Training Data Preview</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-4">
+                A sample of the 1,300 images used to train the YOLO11n network. 
+                The dataset includes various lighting conditions and angles to ensure reliability.
+            </p>
+            
+            <div class="row g-2">
+                <div class="col-4 col-md-2">
+                    <div class="ratio ratio-1x1 border rounded overflow-hidden">
+                        <img src="{{ url_for('static', filename='uploads/sample1.jpg') }}" 
+                             alt="Training Sample 1" class="img-fluid object-fit-cover"
+                             onerror="this.src='https://dummyimage.com/150x150/28a745/fff&text=Mango+1'">
+                    </div>
+                </div>
+                <div class="col-4 col-md-2">
+                    <div class="ratio ratio-1x1 border rounded overflow-hidden">
+                        <img src="{{ url_for('static', filename='uploads/sample2.jpg') }}" 
+                             alt="Training Sample 2" class="img-fluid object-fit-cover"
+                             onerror="this.src='https://dummyimage.com/150x150/ffc107/000&text=Mango+2'">
+                    </div>
+                </div>
+                <div class="col-4 col-md-2">
+                    <div class="ratio ratio-1x1 border rounded overflow-hidden">
+                        <img src="{{ url_for('static', filename='uploads/sample3.jpg') }}" 
+                             alt="Training Sample 3" class="img-fluid object-fit-cover"
+                             onerror="this.src='https://dummyimage.com/150x150/dc3545/fff&text=Mango+3'">
+                    </div>
+                </div>
+                <div class="col-4 col-md-2">
+                    <div class="ratio ratio-1x1 border rounded overflow-hidden">
+                        <img src="{{ url_for('static', filename='uploads/sample4.jpg') }}" 
+                             alt="Training Sample 4" class="img-fluid object-fit-cover"
+                             onerror="this.src='https://dummyimage.com/150x150/28a745/fff&text=Mango+4'">
+                    </div>
+                </div>
+                <div class="col-4 col-md-2">
+                    <div class="ratio ratio-1x1 border rounded overflow-hidden">
+                        <img src="{{ url_for('static', filename='uploads/sample5.jpg') }}" 
+                             alt="Training Sample 5" class="img-fluid object-fit-cover"
+                             onerror="this.src='https://dummyimage.com/150x150/ffc107/000&text=Mango+5'">
+                    </div>
+                </div>
+                <div class="col-4 col-md-2">
+                    <div class="ratio ratio-1x1 bg-secondary text-white rounded d-flex align-items-center justify-content-center">
+                         <img src="{{ url_for('static', filename='uploads/sample6.jpg') }}" 
+                             alt="Training Sample 5" class="img-fluid object-fit-cover"
+                             onerror="this.src='https://dummyimage.com/150x150/ffc107/000&text=Mango+5'">
+                        <span class="fs-4 fw-bold">+1,294</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center mt-5">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-dark">Back to Home</a>
+    </div>
+</div>
+{% endblock %}

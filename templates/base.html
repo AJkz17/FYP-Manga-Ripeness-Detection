@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mango Ripeness Detector</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        /* Ensures the chat window is hidden by default without inline conflict */
+        #chat-window {
+            display: none;
+            width: 350px;
+            height: 450px;
+            max-height: 70vh;
+            position: absolute;
+            bottom: 80px;
+            right: 0;
+            border-radius: 15px;
+            overflow: hidden;
+            flex-direction: column;
+        }
+    </style>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success mb-4">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
+                <i class="bi bi-tree-fill me-2"></i>MangoSnap
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('index') }}">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('about') }}">About</a></li>
+                    {% if session.get('user_id') %}
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('detect') }}">Detect</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('history') }}">History</a></li>
+                    {% endif %}
+                </ul>
+                
+                <div class="navbar-nav ms-3 border-start ps-3">
+                    {% if session.get('user_id') %}
+                        {% if session.get('role') %}
+                            <span class="nav-link text-light disabled small d-flex align-items-center">
+                                <i class="bi bi-person-badge me-1"></i> {{ session.get('role').upper() }}
+                            </span>
+                        {% endif %}
+                        <a class="nav-link btn btn-outline-light btn-sm mx-2" href="{{ url_for('logout') }}">Logout</a>
+                    {% else %}
+                        <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container flex-grow-1">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-warning alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="text-center mt-5 py-3 bg-light border-top">
+        <p class="mb-0 text-muted small">Mango Ripeness Detection Project &copy; 2025</p>
+    </footer>
+
+    <div id="chat-widget" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+        
+        <button id="chat-toggle-btn" class="btn btn-success rounded-circle shadow-lg p-0 d-flex align-items-center justify-content-center" 
+                onclick="toggleChat()" style="width: 60px; height: 60px; font-size: 30px;">
+            <i class="bi bi-chat-dots" id="toggle-icon"></i>
+        </button>
+    
+        <div id="chat-window" class="card shadow-lg">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center py-3">
+                <span class="fw-bold"><i class="bi bi-robot me-2"></i>MangoBot</span>
+                <button type="button" class="btn-close btn-close-white" onclick="toggleChat()"></button>
+            </div>
+    
+            <div class="card-body overflow-auto bg-light p-3" id="chat-messages" style="flex-grow: 1;">
+                <div class="d-flex flex-row justify-content-start mb-3">
+                    <div class="p-3 bg-white text-dark shadow-sm rounded-3 border" style="max-width: 85%;">
+                        <strong>Hello!</strong> 👋 <br>
+                        I am your AI assistant. Ask me anything about mango farming or storage! 🥭
+                    </div>
+                </div>
+            </div>
+    
+            <div class="card-footer p-2 bg-white border-top">
+                <div class="input-group">
+                    <input type="text" id="user-input" class="form-control border-success" placeholder="Type a question..." 
+                           onkeypress="handleEnter(event)">
+                    <button class="btn btn-success" onclick="sendMessage()">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function toggleChat() {
+            var chatWin = document.getElementById("chat-window");
+            var toggleIcon = document.getElementById("toggle-icon");
+            
+            if (chatWin.style.display === "none" || chatWin.style.display === "") {
+                chatWin.style.display = "flex";
+                toggleIcon.className = "bi bi-x-lg"; // Change icon to 'X' when open
+            } else {
+                chatWin.style.display = "none";
+                toggleIcon.className = "bi bi-chat-dots"; // Change icon back to chat
+            }
+        }
+    
+        function handleEnter(e) {
+            if (e.key === "Enter") sendMessage();
+        }
+    
+        async function sendMessage() {
+            const inputField = document.getElementById('user-input');
+            const message = inputField.value.trim();
+            const chatBox = document.getElementById('chat-messages');
+    
+            if (!message) return;
+    
+            // 1. Add User Message
+            chatBox.innerHTML += `
+                <div class="d-flex flex-row justify-content-end mb-3">
+                    <div class="p-3 bg-success text-white shadow-sm rounded-3" style="max-width: 85%;">
+                        ${message}
+                    </div>
+                </div>`;
+            inputField.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+    
+            // 2. Show Loading Bubble
+            const loadingId = "loading-" + Date.now();
+            chatBox.innerHTML += `
+                <div class="d-flex flex-row justify-content-start mb-3" id="${loadingId}">
+                    <div class="p-3 bg-light text-muted border rounded-3 fst-italic">
+                        <span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span>
+                        Thinking...
+                    </div>
+                </div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+    
+            // 3. Call API
+            try {
+                const response = await fetch('/chat_api', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+                const data = await response.json();
+    
+                // Remove loading
+                const loader = document.getElementById(loadingId);
+                if(loader) loader.remove();
+                
+                // Format Bold Text (**text** -> <strong>text</strong>)
+                let formattedText = data.response.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                // Format New Lines (\n -> <br>)
+                formattedText = formattedText.replace(/\n/g, '<br>');
+                
+                // Add Bot Response
+                chatBox.innerHTML += `
+                    <div class="d-flex flex-row justify-content-start mb-3">
+                        <div class="p-3 bg-white text-dark shadow-sm rounded-3 border" style="max-width: 85%;">
+                            ${formattedText}
+                        </div>
+                    </div>`;
+    
+            } catch (error) {
+                const loadEl = document.getElementById(loadingId);
+                if(loadEl) loadEl.innerHTML = '<div class="text-danger small p-2">Connection Error. Please try again.</div>';
+            }
+            
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+
+</body>
+</html>

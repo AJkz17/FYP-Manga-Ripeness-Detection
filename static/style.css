@@ -1,0 +1,44 @@
+/* Drag & Drop Styling */
+#drop-area {
+    border: 2px dashed #ccc;
+    border-radius: 20px;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+#drop-area.highlight {
+    border-color: #198754;
+    background-color: #e8f5e9;
+}
+
+#preview-image {
+    max-height: 200px;
+    display: none;
+}
+
+/* Slider Styling */
+.range-value {
+    font-weight: bold;
+    color: #198754;
+    min-width: 50px;
+    display: inline-block;
+    text-align: right;
+}
+
+/* Result Card Styling */
+.result-card {
+    border: none;
+    border-radius: 15px;
+}
+
+/* Dynamic left border mappings to bypass inline Jinja errors */
+.border-left-overripe {
+    border-left: 4px solid crimson !important;
+}
+.border-left-unripe {
+    border-left: 4px solid gold !important;
+}
+.border-left-ripe {
+    border-left: 4px solid seagreen !important;
+}

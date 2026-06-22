@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% if logged_in %}
+    <div class="container mt-4">
+        <div class="text-center mb-5">
+            <h1 class="display-5 fw-bold text-success">Analytics Dashboard</h1>
+            <p class="lead text-muted">Real-time overview of your mango quality control.</p>
+        </div>
+
+        <div class="row g-3 justify-content-center mb-5">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary shadow h-100 border-0">
+                    <div class="card-header bg-transparent border-0">Total Scans</div>
+                    <div class="card-body text-center">
+                        <h2 class="card-title display-4 fw-bold">{{ total }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success shadow h-100 border-0">
+                    <div class="card-header bg-transparent border-0">Ripe (Harvest)</div>
+                    <div class="card-body text-center">
+                        <h2 class="card-title display-4 fw-bold">{{ ripe }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-dark bg-warning shadow h-100 border-0">
+                    <div class="card-header bg-transparent border-0">Unripe (Wait)</div>
+                    <div class="card-body text-center">
+                        <h2 class="card-title display-4 fw-bold">{{ unripe }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-danger shadow h-100 border-0">
+                    <div class="card-header bg-transparent border-0">Overripe (Waste)</div>
+                    <div class="card-body text-center">
+                        <h2 class="card-title display-4 fw-bold">{{ overripe }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row justify-content-center align-items-center">
+            
+            <div class="col-md-5">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h5 class="card-title text-muted text-center mb-3">Ripeness Distribution</h5>
+                        <canvas id="mangoChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-5 text-start ms-md-4 mt-4 mt-md-0">
+                <h3 class="fw-bold text-dark">Ready to scan?</h3>
+                <p class="text-muted">Update your analytics by adding new detection records.</p>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('detect') }}" class="btn btn-success btn-lg shadow-sm">
+                        📸 Start New Detection
+                    </a>
+                    <a href="{{ url_for('history') }}" class="btn btn-outline-secondary btn-lg shadow-sm">
+                        📜 View Full History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // 1. Get the data from Python safely (wrapped in quotes to silence VS Code errors)
+        // We use Number() to convert the string "5" back to the number 5
+        const ripeCount = Number("{{ ripe }}");
+        const unripeCount = Number("{{ unripe }}");
+        const overripeCount = Number("{{ overripe }}");
+
+        // 2. Setup the Chart
+        const ctx = document.getElementById('mangoChart').getContext('2d');
+        const mangoChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Ripe', 'Unripe', 'Overripe'],
+                datasets: [{
+                    label: 'Count',
+                    data: [ripeCount, unripeCount, overripeCount],
+                    backgroundColor: [
+                        '#198754', // Green
+                        '#ffc107', // Yellow
+                        '#dc3545'  // Red
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    </script>
+
+{% else %}
+    <div class="px-4 py-5 my-5 text-center">
+        <div class="mb-4">
+            <span style="font-size: 80px;">🥭</span>
+        </div>
+        
+        <h1 class="display-5 fw-bold text-success">MangoDetect AI</h1>
+        <div class="col-lg-6 mx-auto">
+            <p class="lead mb-4 text-muted">
+                The intelligent solution for mango quality control. 
+                Detect ripeness, predict shelf life, and manage your harvest with the power of Artificial Intelligence.
+            </p>
+            
+            <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-5">
+                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-5 shadow-sm">
+                    Login
+                </a>
+                <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg px-5 shadow-sm">
+                    Register
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 py-5 row-cols-1 row-cols-lg-3 border-top mt-5">
+        <div class="col text-center">
+            <div class="fs-1 text-success mb-3">📸</div>
+            <h2>Visual Analysis</h2>
+            <p>Instantly classify mangoes as Ripe, Unripe, or Overripe using advanced Computer Vision.</p>
+        </div>
+        <div class="col text-center">
+            <div class="fs-1 text-primary mb-3">⏳</div>
+            <h2>Shelf Life AI</h2>
+            <p>Input temperature and humidity to get precise harvest and expiration predictions.</p>
+        </div>
+        <div class="col text-center">
+            <div class="fs-1 text-danger mb-3">📊</div>
+            <h2>Data History</h2>
+            <p>Track your scans over time. Managers can audit and maintain quality records.</p>
+        </div>
+    </div>
+{% endif %}
+
+{% endblock %}

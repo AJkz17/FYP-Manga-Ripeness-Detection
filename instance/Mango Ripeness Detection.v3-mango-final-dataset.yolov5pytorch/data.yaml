@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 3
+names: ['Overripe', 'Ripe', 'Unripe']
+
+roboflow:
+  workspace: onieu
+  project: mango-ripeness-detection
+  version: 3
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/onieu/mango-ripeness-detection/dataset/3
