@@ -17,26 +17,18 @@ from ml_integration import predict_ripeness
 
 app = Flask(__name__)
 
-# --- Configuration ---
-app.config['SECRET_KEY'] = 'your_secret_key_here'
-
-
-# 1. Get the base directory
 basedir = os.path.abspath(os.path.dirname(__file__))
 
-# --- Database Setup ---
+# init Database 
 instance_path = os.path.join(basedir, 'instance')
 if not os.path.exists(instance_path):
     os.makedirs(instance_path)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(instance_path, 'mango.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# --- Upload Folder Setup ---
 UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
 # Initialize DB connection
 db.init_app(app)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -49,8 +41,6 @@ try:
 except FileNotFoundError:
     print("WARNING: 'harvest_model_simple.pkl' not found. Prediction will fail.")
     harvest_model = None
-
-# --- Helper Functions ---
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -66,12 +56,6 @@ def get_handling_suggestion(label):
         return "Ready to eat! Store in refrigerator."
     else:
         return "No specific instructions."
-
-# --- Routes ---
-
-# @app.route('/')
-# def index():
-#     return render_template('index.html')
 
 @app.route('/about')
 def about():
@@ -221,7 +205,6 @@ def realtime_detect():
             pred = harvest_model.predict([[0, user_temp, user_humidity]])
             days_remaining = str(int(round(pred[0])))
 
-        # Construct a list structure to support flexible multi-object listing extensions
         detections = []
         if prediction_class:
             detections.append({
@@ -232,7 +215,6 @@ def realtime_detect():
                 "box": box_data if box_data else {"x1": 50, "y1": 50, "x2": 250, "y2": 250}
             })
 
-        # Return original resolution metrics for accurate viewport relative scaling
         h, w, _ = frame.shape
         return jsonify({
             "detections": detections,
@@ -245,22 +227,13 @@ def realtime_detect():
 
 @app.route('/export_history')
 def export_history():
-    # 1. Security Check: Must be logged in
     if 'user_id' not in session:
         flash('Please login to export data.')
         return redirect(url_for('login'))
-    
-    # 2. Query all records from the database
     records = DetectionRecord.query.order_by(DetectionRecord.timestamp.desc()).all()
-    
-    # 3. Create a CSV in memory (RAM)
     si = StringIO()
     cw = csv.writer(si)
-    
-    # Write the Header Row
     cw.writerow(['ID', 'Date/Time', 'Filename', 'Prediction', 'Confidence', 'Temp(C)', 'Humidity(%)', 'Days Remaining'])
-    
-    # Write the Data Rows
     for r in records:
         cw.writerow([
             r.id, 
@@ -272,8 +245,6 @@ def export_history():
             r.humidity, 
             r.days_remaining
         ])
-        
-    # 4. Prepare the response as a file download
     output = make_response(si.getvalue())
     output.headers["Content-Disposition"] = "attachment; filename=mango_history.csv"
     output.headers["Content-type"] = "text/csv"
@@ -283,11 +254,11 @@ def export_history():
 
 @app.route('/')
 def index():
-    # 1. If user is NOT logged in, show the public landing page (Option B)
+    # If user is NOT logged in, show the public landing page
     if 'user_id' not in session:
         return render_template('index.html', logged_in=False)
     index
-    # 2. If logged in, calculate statistics for the Dashboard (Option A)
+    # If logged in, show Dashboard
     total_scans = DetectionRecord.query.count()
     ripe_count = DetectionRecord.query.filter_by(prediction='Ripe').count()
     unripe_count = DetectionRecord.query.filter_by(prediction='Unripe').count()
@@ -305,13 +276,11 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        
-        # Check if user exists in DB
         user = User.query.filter_by(username=username, password=password).first()
         
         if user:
             session['user_id'] = user.id
-            session['role'] = user.role  # Remember if they are 'manager'
+            session['role'] = user.role 
             flash(f'Welcome back, {user.username}!')
             return redirect(url_for('index'))
         else:
@@ -325,15 +294,12 @@ def logout():
     flash('You have been logged out.')
     return redirect(url_for('login'))
 
-# --- MANAGER ONLY ROUTES ---
-
+# --- Manager Functionality ---
 @app.route('/delete_multiple_records', methods=['POST'])
 def delete_multiple_records():
     if 'user_id' not in session:
         flash('Please login to perform this action.')
         return redirect(url_for('login'))
-
-    # Extract checked checkbox identifier values array sent from the HTML page form
     selected_ids = request.form.getlist('selected_ids')
     
     if not selected_ids:
@@ -343,17 +309,14 @@ def delete_multiple_records():
     files_to_check = set()
 
     try:
-        # 1. Loop through database IDs to clean records and gather active filename contexts
         for record_id in selected_ids:
             record = DetectionRecord.query.get(int(record_id))
             if record:
                 files_to_check.add(record.filename)
                 db.session.delete(record)
         
-        # Flush deleted database row states first
         db.session.commit()
 
-        # 2. Check remaining copies for image disk cleanup safety 
         for filename in files_to_check:
             remaining_copies = DetectionRecord.query.filter_by(filename=filename).count()
             if remaining_copies == 0:
@@ -385,7 +348,6 @@ def register():
             flash('Username or Email already exists. Please choose another.')
             return redirect(url_for('register'))
         
-        # Create new user with all fields
         new_user = User(username=username, email=email, phone=phone, password=password, role='user')
         db.session.add(new_user)
         db.session.commit()
@@ -402,7 +364,7 @@ def history():
 
 
 
-# --- CHATBOT CONFIGURATION ---
+# --- Chatobt configure ---
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 generation_config = {
@@ -411,9 +373,6 @@ generation_config = {
     "top_k": 64,
     "max_output_tokens": 1024,
 }
-
-# 1. Use 'gemini-pro' (Stable Version)
-# 2. Removed 'system_instruction' from here to avoid errors
 
 chat_model = genai.GenerativeModel(
     model_name="gemini-2.5-flash", 
@@ -426,8 +385,6 @@ def chat_api():
         user_message = request.json.get('message')
         if not user_message:
             return jsonify({'error': 'No message provided'}), 400
-
-        # Updated with explicit summarization and short-answer constraints
         system_instruction = """
         You are 'MangoBot', an expert agricultural assistant for the MangoDetect application.
         Your goal is to assist users with mango ripeness, shelf life, and storage conditions.
@@ -444,14 +401,10 @@ def chat_api():
 
         If asked about room temperature, briefly summarize Fan-only vs. AC room settings using the metrics above[cite: 41].
         """
-        
-        # Combine instruction + user message 
-        full_prompt = f"{system_instruction}\n\nUser Question: {user_message}"
 
-        # Start chat (stateless for this simple version) 
+        full_prompt = f"{system_instruction}\n\nUser Question: {user_message}"
         chat = chat_model.start_chat(history=[]) 
         response = chat.send_message(full_prompt) 
-        
         return jsonify({'response': response.text}) 
     
     except Exception as e:
@@ -460,7 +413,6 @@ def chat_api():
 
 with app.app_context():
     db.create_all()
-    # Check if manager exists, if not, create one
     if not User.query.filter_by(username='admin').first():
         manager = User(username='admin', password='password123', role='manager')
         db.session.add(manager)
