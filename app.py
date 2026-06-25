@@ -4,18 +4,19 @@ import csv
 import cv2
 import joblib
 import numpy as np
-import google.generativeai as genai
+import secrets
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from werkzeug.utils import secure_filename
 from models import db, DetectionRecord, User
-from flask import session
 from io import StringIO
 from flask import make_response
 from ml_integration import predict_ripeness
-
-
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', secrets.token_hex(32))
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
@@ -41,6 +42,17 @@ try:
 except FileNotFoundError:
     print("WARNING: 'harvest_model_simple.pkl' not found. Prediction will fail.")
     harvest_model = None
+
+load_dotenv()
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Prepare the unified configuration mapping block
+generation_config = types.GenerateContentConfig(
+    temperature=0.7,
+    top_p=0.95,
+    top_k=64,
+    max_output_tokens=1024
+)
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -86,9 +98,15 @@ def detect():
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
 
+            # Save a pristine raw clone backup BEFORE cv2 draws on it for your logistics view
+            raw_filename = "raw_" + filename
+            raw_filepath = os.path.join(app.config['UPLOAD_FOLDER'], raw_filename)
+            import shutil
+            shutil.copyfile(filepath, raw_filepath)
+
             img = cv2.imread(filepath)
             
-            # Call your updated model function which now returns a LIST of dictionaries
+            # Call your model function which returns a LIST of dictionaries
             raw_detections = predict_ripeness(filepath) 
 
             # Loop through every isolated mango coordinate profile returned
@@ -101,14 +119,24 @@ def detect():
                 if "overripe" in p_class_str:
                     days_remaining = "0"
                     harvest_msg = "Past harvest time. Process immediately."
+                
+                # --- UPDATED UNRIPE LOGIC SECTION ---
                 elif "unripe" in p_class_str:
                     if harvest_model:
+                        # 1. Predict raw baseline days using your environment metrics
                         pred = harvest_model.predict([[0, user_temp, user_humidity]])
-                        days_remaining = str(int(round(pred[0])))
+                        calculated_days = int(round(pred[0]))
+                        
+                        # 2. Enforce the minimum 5-day clamp standard
+                        final_days = max(5, calculated_days)
+                        
+                        days_remaining = str(final_days)
                         harvest_msg = f"Estimated {days_remaining} days until optimal harvest/process."
                     else:
-                        days_remaining = "N/A"
-                        harvest_msg = "Model missing."
+                        # Baseline fallback standard if the simple .pkl file is missing
+                        days_remaining = "5"
+                        harvest_msg = "Model missing. Default baseline applied."
+                
                 elif "ripe" in p_class_str:
                     days_remaining = "0"
                     harvest_msg = "Optimal Harvest Time! Pick now."
@@ -211,7 +239,6 @@ def realtime_detect():
                 "label": prediction_class,
                 "confidence": confidence_score,
                 "days_remaining": days_remaining,
-                # Safe dimensions fallbacks to ensure bounding box metrics exist
                 "box": box_data if box_data else {"x1": 50, "y1": 50, "x2": 250, "y2": 250}
             })
 
@@ -254,11 +281,9 @@ def export_history():
 
 @app.route('/')
 def index():
-    # If user is NOT logged in, show the public landing page
     if 'user_id' not in session:
         return render_template('index.html', logged_in=False)
-    index
-    # If logged in, show Dashboard
+    
     total_scans = DetectionRecord.query.count()
     ripe_count = DetectionRecord.query.filter_by(prediction='Ripe').count()
     unripe_count = DetectionRecord.query.filter_by(prediction='Unripe').count()
@@ -335,6 +360,52 @@ def delete_multiple_records():
 
     return redirect(url_for('history'))
 
+@app.route('/logistics', methods=['GET', 'POST'])
+def logistics():
+    if 'user_id' not in session:
+        flash('Please login to view logistics mapping suites.')
+        return redirect(url_for('login'))
+
+    records = DetectionRecord.query.order_by(DetectionRecord.timestamp.desc()).all()
+
+    selected_record = None
+    selected_route = None
+    transit_time = 0
+    shelf_life = 0
+    condition_margin = 0
+
+    if request.method == 'POST':
+        record_id = request.form.get('record_id')
+        selected_route = request.form.get('route_id')
+
+        if record_id and selected_route:
+            selected_record = DetectionRecord.query.get(int(record_id))
+
+            if selected_record:
+                route_transit_matrix = {
+                    'route_a': 1,  # Kuala Lumpur (1 Day Transit) 
+                    'route_b': 3,  # Singapore (3 Days Transit) 
+                    'route_c': 5   # East Asia Export (5 Days Transit)
+                }
+                transit_time = route_transit_matrix.get(selected_route, 0)
+
+                try:
+                    shelf_life = int(selected_record.days_remaining)
+                except ValueError:
+                    shelf_life = 0  
+
+                condition_margin = shelf_life - transit_time 
+
+    return render_template(
+        'logistics.html',
+        records=records,
+        selected_record=selected_record,
+        selected_route=selected_route,
+        transit_time=transit_time,
+        shelf_life=shelf_life,
+        condition_margin=condition_margin
+    )
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -363,28 +434,14 @@ def history():
     return render_template('history.html', records=records)
 
 
-
-# --- Chatobt configure ---
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-generation_config = {
-    "temperature": 0.7,
-    "top_p": 0.95,
-    "top_k": 64,
-    "max_output_tokens": 1024,
-}
-
-chat_model = genai.GenerativeModel(
-    model_name="gemini-2.5-flash", 
-    generation_config=generation_config
-)
-
+# --- UPGRADED: Chatbot endpoint utilizing the google-genai Client architecture ---
 @app.route('/chat_api', methods=['POST'])
 def chat_api():
     try:
         user_message = request.json.get('message')
         if not user_message:
             return jsonify({'error': 'No message provided'}), 400
+            
         system_instruction = """
         You are 'MangoBot', an expert agricultural assistant for the MangoDetect application.
         Your goal is to assist users with mango ripeness, shelf life, and storage conditions.
@@ -394,17 +451,23 @@ def chat_api():
         Keep your total response under 3 sentences unless listing specific metrics. Avoid long paragraphs.
 
         ENVIRONMENTAL STANDARDS (MALAYSIA CONTEXT):
-        1. Standard Room (No AC): 27°C - 31°C | 70% - 85% Humidity (Warm/Humid kitchen/warehouse)[cite: 38].
-        2. AC Room: 20°C - 24°C | 45% - 55% Humidity (Slows ripening, extends shelf life)[cite: 39].
-        3. Refrigerator: 4°C - 10°C | 85% - 95% Humidity (Best for long-term storage of ripe mangoes)[cite: 40].
-        4. Outdoor Farm (Daytime): 32°C - 36°C | 60% - 75% Humidity (Hot condition)[cite: 41].
+        1. Standard Room (No AC): 27°C - 31°C | 70% - 85% Humidity (Warm/Humid kitchen/warehouse).
+        2. AC Room: 20°C - 24°C | 45% - 55% Humidity (Slows ripening, extends shelf life).
+        3. Refrigerator: 4°C - 10°C | 85% - 95% Humidity (Best for long-term storage of ripe mangoes).
+        4. Outdoor Farm (Daytime): 32°C - 36°C | 60% - 75% Humidity (Hot condition).
 
-        If asked about room temperature, briefly summarize Fan-only vs. AC room settings using the metrics above[cite: 41].
+        If asked about room temperature, briefly summarize Fan-only vs. AC room settings using the metrics above.
         """
 
         full_prompt = f"{system_instruction}\n\nUser Question: {user_message}"
-        chat = chat_model.start_chat(history=[]) 
-        response = chat.send_message(full_prompt) 
+        
+        # UPGRADED: Generate content statelessly using models.generate_content with our loaded config setup
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=full_prompt,
+            config=generation_config
+        )
+        
         return jsonify({'response': response.text}) 
     
     except Exception as e:
@@ -422,6 +485,5 @@ with app.app_context():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-
         
     app.run(debug=True, port=7777)
