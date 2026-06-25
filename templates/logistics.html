@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <h2 class="mb-4 text-center">🚛 Logistics Router & Spoilage Deadline Planner</h2>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white fw-bold">
+                📋 Route Planning Control Form
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('logistics') }}">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="record_id" class="form-label fw-bold">📦 Select Active Warehouse Batch</label>
+                            <select class="form-select" id="record_id" name="record_id" required>
+                                <option value="" disabled selected>-- Choose a history record --</option>
+                                {% for r in records %}
+                                    <option value="{{ r.id }}" {% if selected_record and selected_record.id == r.id %}selected{% endif %}>
+                                        Batch #{{ r.id }} - {{ r.filename }} ({{ r.prediction }} - {{ r.days_remaining }} Days Left)
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="route_id" class="form-label fw-bold">🗺️ Select Transit Destination Route</label>
+                            <select class="form-select" id="route_id" name="route_id" required>
+                                <option value="" disabled selected>-- Choose target market --</option>
+                                <option value="route_a" {% if selected_route == 'route_a' %}selected{% endif %}>Kuala Lumpur (Domestic Transit — 1 Day)</option>
+                                <option value="route_b" {% if selected_route == 'route_b' %}selected{% endif %}>Singapore (Regional Transit — 3 Days)</option>
+                                <option value="route_c" {% if selected_route == 'route_c' %}selected{% endif %}>East Asia Export (International Air — 5 Days)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-primary fw-bold px-4">
+                            📊 Calculate Delivery Feasibility
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if selected_record and selected_route %}
+        <div class="mt-5" id="logisticsResults">
+            <h4 class="fw-bold text-dark mb-3">⚡ Route Evaluation Analysis Breakdown</h4>
+            
+            {% if condition_margin >= 0 %}
+                <div class="alert alert-success border-start border-4 border-success shadow-sm d-flex align-items-center" role="alert">
+                    <span class="fs-2 me-3">✅</span>
+                    <div>
+                        <h5 class="alert-heading fw-bold mb-1">Safe Route Allocation Approved</h5>
+                        <p class="mb-0 small">The mango package will reach the target market with an estimated <strong>{{ condition_margin }} days</strong> of optimal quality margin remaining before spoilage.</p>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-danger border-start border-4 border-danger shadow-sm d-flex align-items-center" role="alert">
+                    <span class="fs-2 me-3">⚠️</span>
+                    <div>
+                        <h5 class="alert-heading fw-bold mb-1">High Spoilage Risk Flagged</h5>
+                        <p class="mb-0 small">Spoilage cross-over event detected! Fruit maturity limits will expire approximately <strong>{{ condition_margin|abs }} days</strong> before arriving safely at the destination.</p>
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="row g-4 mt-1">
+                <div class="col-md-4">
+                    <div class="card h-100 shadow-sm border-0 bg-white p-3 text-center">
+                        <span class="text-uppercase small text-muted fw-bold d-block mb-2">📸 Raw Batch Image Reference</span>
+                        <div class="d-flex align-items-center justify-content-center border rounded bg-light" style="min-height: 200px;">
+                            <img src="{{ url_for('static', filename='uploads/' + (raw_filename if raw_filename else selected_record.filename)) }}" 
+                                 alt="Raw Batch Sample" 
+                                 class="img-fluid rounded shadow-sm" 
+                                 style="max-height: 220px; object-fit: contain;">
+                        </div>
+                        <small class="text-muted fst-italic mt-2 d-block">Source File: {{ selected_record.filename }}</small>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <div class="card h-100 bg-white p-4 shadow-sm border-0 justify-content-between">
+                        <div class="row text-center g-3">
+                            <div class="col-sm-4 border-end">
+                                <span class="text-uppercase small text-muted fw-bold d-block">Batch Shelf Life Proj</span>
+                                <h2 class="fw-bold text-primary mb-0 mt-1">{{ shelf_life }} Days</h2>
+                            </div>
+                            <div class="col-sm-4 border-end">
+                                <span class="text-uppercase small text-muted fw-bold d-block">Transit Travel Duration</span>
+                                <h2 class="fw-bold text-warning mb-0 mt-1">{{ transit_time }} Days</h2>
+                            </div>
+                            <div class="col-sm-4">
+                                <span class="text-uppercase small text-muted fw-bold d-block">Arrival Condition Margin</span>
+                                <h2 class="fw-bold {% if condition_margin >= 0 %}text-success{% else %}text-danger{% endif %} mb-0 mt-1">
+                                    {{ condition_margin }} Days
+                               </h2>
+                            </div>
+                        </div>
+
+                        <div class="bg-light p-3 rounded mt-4 small border">
+                            <h6 class="fw-bold mb-2">📋 Logistics Logistics Memo Notes:</h6>
+                            <ul class="mb-0 text-muted ps-3">
+                                <li><strong>Batch Identification Pointer:</strong> Record Instance #{{ selected_record.id }}.</li>
+                                <li><strong>Ambient Base Logging Variables:</strong> Evaluated under warehouse properties at <strong>{{ selected_record.temperature }}°C</strong> and <strong>{{ selected_record.humidity }}%</strong> humidity levels.</li>
+                                <li><strong>Dispatch Recommendation:</strong> {% if condition_margin == 0 %}Dispatch recommended immediately within 24 hours. Transit matching fruit duration caps exactly.{% elif condition_margin < 0 %}Do not dispatch this batch along this path. Re-route domestic or utilize chiller rooms.{% else %}Safe buffer margin verified. Clear for load sequencing.{% endif %}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
